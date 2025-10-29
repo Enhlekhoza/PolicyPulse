@@ -1,150 +1,95 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Tabs, Button, Slider, InputNumber, Row, Col, Typography, Statistic, Progress } from 'antd';
-import { Line, Bar } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
 
 const PolicySimulator = () => {
-  const [policyType, setPolicyType] = useState('ubi');
-  const [parameters, setParameters] = useState({
-    amount: 1000,
-    duration: 12,
-    recipients: 1000000,
-  });
+  const [policyType, setPolicyType] = useState('');
+  const [parameters, setParameters] = useState({});
   const [simulationResults, setSimulationResults] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [policies, setPolicies] = useState([]);
 
-  const policyTypes = [
-    { key: 'ubi', name: 'Universal Basic Income' },
-    { key: 'carbon_tax', name: 'Carbon Tax' },
-    { key: 'infrastructure', name: 'Infrastructure Investment' },
-  ];
+  useEffect(() => {
+    const fetchPolicies = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/policies');
+        const data = await response.json();
+        if (data.success) {
+          setPolicies(data.data);
+          if (data.data.length > 0) {
+            setPolicyType(data.data[0].id);
+            const initialParams = {};
+            for (const key in data.data[0].parameters) {
+              initialParams[key] = data.data[0].parameters[key].defaultValue;
+            }
+            setParameters(initialParams);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch policies:', error);
+      }
+    };
+    fetchPolicies();
+  }, []);
 
   const runSimulation = async () => {
     setIsLoading(true);
     try {
-      // In a real app, this would call your backend API
-      // const response = await fetch('/api/simulate', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ policyType, parameters })
-      // });
-      // const data = await response.json();
-      
-      // Mock response for demo
-      setTimeout(() => {
-        const mockResults = {
-          gdpImpact: policyType === 'ubi' ? 2.5 : -0.5,
-          employmentRate: policyType === 'ubi' ? 1.2 : -0.3,
-          povertyRate: policyType === 'ubi' ? -8.5 : 0.5,
-          costToGovernment: policyType === 'ubi' 
-            ? parameters.amount * parameters.recipients 
-            : -1000000,
-          co2Reduction: policyType === 'carbon_tax' ? 15 : 0,
-          timestamp: new Date().toISOString()
-        };
-        setSimulationResults(mockResults);
-        setIsLoading(false);
-      }, 1000);
-      
+      const response = await fetch('http://localhost:5000/api/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ policyType, parameters })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSimulationResults(data.data.results);
+      } else {
+        console.error('Simulation failed:', data.message);
+      }
     } catch (error) {
       console.error('Simulation error:', error);
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   const renderPolicyControls = () => {
-    switch (policyType) {
-      case 'ubi':
-        return (
-          <div>
-            <div style={{ marginBottom: 24 }}>
-              <Text strong>Monthly Amount (USD)</Text>
-              <Slider
-                min={500}
-                max={2000}
-                step={100}
-                value={parameters.amount}
-                onChange={(value) => setParameters({...parameters, amount: value})}
-                marks={{ 500: '$500', 1250: '$1,250', 2000: '$2,000' }}
-              />
-              <InputNumber
-                min={500}
-                max={2000}
-                value={parameters.amount}
-                onChange={(value) => setParameters({...parameters, amount: value})}
-                formatter={value => `$${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                style={{ width: '100%', marginTop: 8 }}
-              />
-            </div>
-            
-            <div style={{ marginBottom: 24 }}>
-              <Text strong>Number of Recipients</Text>
-              <Slider
-                min={100000}
-                max={10000000}
-                step={100000}
-                value={parameters.recipients}
-                onChange={(value) => setParameters({...parameters, recipients: value})}
-                marks={{ 100000: '100K', 5000000: '5M', 10000000: '10M' }}
-              />
-              <InputNumber
-                min={100000}
-                max={10000000}
-                value={parameters.recipients}
-                onChange={(value) => setParameters({...parameters, recipients: value})}
-                formatter={value => value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                style={{ width: '100%', marginTop: 8 }}
-              />
-            </div>
+    const policy = policies.find(p => p.id === policyType);
+    if (!policy) return null;
+
+    return (
+      <div>
+        {Object.entries(policy.parameters).map(([key, param]) => (
+          <div key={key} style={{ marginBottom: 24 }}>
+            <Text strong>{param.label}</Text>
+            <Slider
+              min={param.min}
+              max={param.max}
+              step={param.step}
+              value={parameters[key]}
+              onChange={(value) => setParameters({ ...parameters, [key]: value })}
+              marks={{ [param.min]: param.min, [param.max]: param.max }}
+            />
+            <InputNumber
+              min={param.min}
+              max={param.max}
+              value={parameters[key]}
+              onChange={(value) => setParameters({ ...parameters, [key]: value })}
+              style={{ width: '100%', marginTop: 8 }}
+            />
           </div>
-        );
-      
-      case 'carbon_tax':
-        return (
-          <div>
-            <div style={{ marginBottom: 24 }}>
-              <Text strong>Tax Rate (per ton CO₂)</Text>
-              <Slider
-                min={20}
-                max={200}
-                step={5}
-                value={parameters.amount}
-                onChange={(value) => setParameters({...parameters, amount: value})}
-                marks={{ 20: '$20', 100: '$100', 200: '$200' }}
-              />
-              <InputNumber
-                min={20}
-                max={200}
-                value={parameters.amount}
-                onChange={(value) => setParameters({...parameters, amount: value})}
-                formatter={value => `$${value}`}
-                style={{ width: '100%', marginTop: 8 }}
-              />
-            </div>
-          </div>
-        );
-      
-      default:
-        return <Text>Select a policy type to configure parameters</Text>;
-    }
+        ))}
+      </div>
+    );
   };
 
   const renderResults = () => {
     if (!simulationResults) return null;
 
-    const { gdpImpact, employmentRate, povertyRate, costToGovernment, co2Reduction } = simulationResults;
+    const { gdpImpact, employmentRate, povertyRate, costToGovernment, co2Reduction, incomeBrackets, inflationImpact, laborParticipationChange } = simulationResults;
     
-    const formatCurrency = (value) => {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(value);
-    };
-
     return (
       <div style={{ marginTop: 24 }}>
         <Title level={4}>Simulation Results</Title>
@@ -178,7 +123,7 @@ const PolicySimulator = () => {
                 value={povertyRate}
                 precision={1}
                 valueStyle={{ color: povertyRate <= 0 ? '#3f8600' : '#cf1322' }}
-                suffix={povertyRate > 0 ? ' p.p. increase' : ' p.p. decrease'}
+                suffix=" p.p."
               />
             </Card>
           </Col>
@@ -190,11 +135,36 @@ const PolicySimulator = () => {
                 precision={1}
                 valueStyle={{ color: costToGovernment > 0 ? '#cf1322' : '#3f8600' }}
                 prefix={costToGovernment > 0 ? '-' : '+'}
-                prefixCls="ant-statistic"
                 suffix="M"
               />
             </Card>
           </Col>
+          {policyType === 'ubi' && inflationImpact !== undefined && (
+            <Col xs={24} sm={12} md={6}>
+              <Card>
+                <Statistic
+                  title="Inflation Impact"
+                  value={inflationImpact * 100}
+                  precision={1}
+                  valueStyle={{ color: inflationImpact >= 0 ? '#cf1322' : '#3f8600' }}
+                  suffix="%"
+                />
+              </Card>
+            </Col>
+          )}
+          {policyType === 'ubi' && laborParticipationChange !== undefined && (
+            <Col xs={24} sm={12} md={6}>
+              <Card>
+                <Statistic
+                  title="Labor Participation Change"
+                  value={laborParticipationChange * 100}
+                  precision={1}
+                  valueStyle={{ color: laborParticipationChange >= 0 ? '#3f8600' : '#cf1322' }}
+                  suffix="%"
+                />
+              </Card>
+            </Col>
+          )}
         </Row>
 
         {policyType === 'carbon_tax' && co2Reduction && (
@@ -206,6 +176,22 @@ const PolicySimulator = () => {
               strokeColor={{ '0%': '#108ee9', '100%': '#87d068' }}
               format={(percent) => `${percent}% reduction`}
             />
+          </div>
+        )}
+
+        {incomeBrackets && incomeBrackets.length > 0 && (
+          <div style={{ marginTop: 24 }}>
+            <Title level={5}>Income Bracket Impact</Title>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={incomeBrackets}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="bracket" />
+                <YAxis />
+                <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Annual Change']} />
+                <Legend />
+                <Bar dataKey="amount" fill="#8884d8" name="Annual Change ($)" />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         )}
       </div>
@@ -221,8 +207,8 @@ const PolicySimulator = () => {
 
       <Card style={{ marginTop: 24 }}>
         <Tabs activeKey={policyType} onChange={setPolicyType}>
-          {policyTypes.map(policy => (
-            <TabPane tab={policy.name} key={policy.key} />
+          {policies.map(policy => (
+            <TabPane tab={policy.name} key={policy.id} />
           ))}
         </Tabs>
 

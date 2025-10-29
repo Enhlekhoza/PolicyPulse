@@ -1,14 +1,38 @@
 import { Request, Response } from 'express';
-import { simulatePolicyImpact, saveSimulation } from '../models/policyModel';
+import { saveSimulation } from '../models/policyModel';
 import { prisma } from '../lib/prisma';
+import { policies } from '../config/policies';
+
+export const getPolicies = async (req: Request, res: Response) => {
+  try {
+    res.status(200).json({
+      success: true,
+      data: Object.values(policies).map(({ simulate, ...policy }) => policy),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch policies',
+    });
+  }
+};
 
 export const runSimulation = async (req: Request, res: Response) => {
   try {
     const { policyType, parameters } = req.body;
     const userId = (req as any).user.id;
 
+    const policy = policies[policyType];
+
+    if (!policy) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid policy type',
+      });
+    }
+
     // Run simulation
-    const results = await simulatePolicyImpact(policyType, parameters);
+    const results = policy.simulate(parameters);
     
     // Save simulation
     const simulation = await saveSimulation(userId, {
@@ -44,9 +68,15 @@ export const getSimulationHistory = async (req: Request, res: Response) => {
       take: 10 // Get last 10 simulations
     });
 
+    const parsedSimulations = simulations.map(simulation => ({
+      ...simulation,
+      parameters: JSON.parse(simulation.parameters),
+      results: JSON.parse(simulation.results)
+    }));
+
     res.status(200).json({
       success: true,
-      data: simulations
+      data: parsedSimulations
     });
   } catch (error) {
     res.status(500).json({
