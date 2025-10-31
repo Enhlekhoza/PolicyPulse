@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Slider, Select, Input, Card, Row, Col, Typography, Statistic } from 'antd';
+import { Slider, Select, Input, Card, Row, Col, Typography, Statistic, Button } from 'antd';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const { Title, Text } = Typography;
 const { Option } = Select;

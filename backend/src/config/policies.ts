@@ -94,7 +94,7 @@ export const policies: { [key: string]: Policy } = {
         step: 5,
       },
     },
-    simulate: (parameters: any) => ({
+    simulate: () => ({
       gdpImpact: -0.5, // Percentage change
       employmentRate: -0.3, // Percentage points
       co2Reduction: 12, // Percentage reduction

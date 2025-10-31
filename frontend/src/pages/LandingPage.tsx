@@ -27,6 +27,23 @@ const features = [
 const LandingPage = () => {
   const navigate = useNavigate();
 
+  const handleTrySimulator = () => {
+    console.log('Navigating to /app/simulator');
+    try {
+      navigate('/app/simulator');
+      // If navigation doesn't work after a short delay, try full page navigation
+      setTimeout(() => {
+        if (window.location.pathname === '/') {
+          console.log('Client-side navigation failed, trying full page navigation');
+          window.location.href = '/app/simulator';
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Navigation error:', error);
+      window.location.href = '/app/simulator';
+    }
+  };
+
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
       {/* Hero Section */}
@@ -41,7 +58,7 @@ const LandingPage = () => {
           <Button 
             type="primary" 
             size="large" 
-            onClick={() => navigate('/simulator')}
+            onClick={handleTrySimulator}
             icon={<ArrowRightOutlined />}
           >
             Try Simulator

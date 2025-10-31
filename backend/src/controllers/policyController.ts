@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import { saveSimulation } from '../models/policyModel';
-import { prisma } from '../lib/prisma';
+import prisma from '../lib/prisma';
 import { policies } from '../config/policies';
 
-export const getPolicies = async (req: Request, res: Response) => {
+export const getPolicies = async (_req: Request, res: Response) => {
   try {
     res.status(200).json({
       success: true,
@@ -50,10 +50,11 @@ export const runSimulation = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Simulation error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     res.status(500).json({
       success: false,
       message: 'Failed to run simulation',
-      error: error.message
+      error: errorMessage
     });
   }
 };
@@ -68,7 +69,7 @@ export const getSimulationHistory = async (req: Request, res: Response) => {
       take: 10 // Get last 10 simulations
     });
 
-    const parsedSimulations = simulations.map(simulation => ({
+    const parsedSimulations = simulations.map((simulation: { parameters: string; results: string; [key: string]: any }) => ({
       ...simulation,
       parameters: JSON.parse(simulation.parameters),
       results: JSON.parse(simulation.results)
